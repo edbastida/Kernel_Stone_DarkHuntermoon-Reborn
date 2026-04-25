@@ -1,0 +1,5 @@
+# PENDING: QCACLD-3.0 packet injection patch
+# The kamikaonashi kernel has FEATURE_MONITOR_MODE_SUPPORT (capture only).
+# True packet injection via wlan0 requires firmware-level changes in QCACLD.
+# Use Realtek USB adapters (rtl8812au, rtl8188eus, etc.) for injection instead.
+# The mac80211 injection patch (0002) enables injection for all USB adapters.

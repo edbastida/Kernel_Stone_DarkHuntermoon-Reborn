@@ -1,0 +1,2 @@
+# NOT NEEDED: stone/moonstone/sunstone use Qualcomm QCACLD-3.0 wifi.
+# No MediaTek WLAN hardware on this device family. No-op patch.

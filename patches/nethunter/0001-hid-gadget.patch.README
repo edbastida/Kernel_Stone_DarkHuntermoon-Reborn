@@ -1,0 +1,4 @@
+# HID gadget (f_hid) is already integrated in kamikaonashi kernel via
+# DECLARE_USB_FUNCTION_INIT in drivers/usb/gadget/function/f_hid.c
+# CONFIG_USB_CONFIGFS_F_HID=y is set in stone_nethunter.config
+# No patch required.

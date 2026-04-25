@@ -1,0 +1,5 @@
+sources/
+out/
+.done_*
+*.log
+*.rej

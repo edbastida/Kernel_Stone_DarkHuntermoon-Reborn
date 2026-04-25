@@ -1,0 +1,54 @@
+#!/usr/bin/env bash
+# Shared utilities: logging, error handling, banners
+
+RED='\033[0;31m'
+GREEN='\033[0;32m'
+YELLOW='\033[1;33m'
+CYAN='\033[0;36m'
+BOLD='\033[1m'
+NC='\033[0m'
+
+log()  { echo -e "${CYAN}[$(date '+%H:%M:%S')]${NC} $*"; }
+ok()   { echo -e "${GREEN}[OK]${NC} $*"; }
+warn() { echo -e "${YELLOW}[WARN]${NC} $*"; }
+err()  { echo -e "${RED}[ERROR]${NC} $*" >&2; }
+
+check_error() {
+    local exit_code=$?
+    local msg="${1:-Command failed}"
+    if [[ $exit_code -ne 0 ]]; then
+        err "$msg (exit $exit_code)"
+        exit $exit_code
+    fi
+}
+
+die() {
+    err "$*"
+    exit 1
+}
+
+banner() {
+    local msg="$*"
+    local len=${#msg}
+    local border
+    border=$(printf '═%.0s' $(seq 1 $((len + 4))))
+    echo -e "\n${BOLD}${CYAN}╔${border}╗${NC}"
+    echo -e "${BOLD}${CYAN}║  ${msg}  ║${NC}"
+    echo -e "${BOLD}${CYAN}╚${border}╝${NC}\n"
+}
+
+require_cmd() {
+    command -v "$1" &>/dev/null || die "Required command not found: $1"
+}
+
+step_done_file() {
+    echo "${REPO_ROOT}/.done_${1}"
+}
+
+is_step_done() {
+    [[ -f "$(step_done_file "$1")" ]]
+}
+
+mark_step_done() {
+    touch "$(step_done_file "$1")"
+}

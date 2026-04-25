@@ -1,0 +1,3 @@
+# NOT NEEDED for Magisk-rooted device:
+# The hci_sock.c CAP_NET_RAW restriction is bypassed when running
+# NetHunter tools with root (via Magisk su). No patch required.

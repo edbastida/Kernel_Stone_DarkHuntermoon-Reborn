@@ -1,0 +1,7 @@
+#!/sbin/sh
+# AnyKernel3 update-binary — delegates to ak3-core.sh
+# This file is replaced by AnyKernel3's own update-binary at package time.
+# Kept here as a placeholder to satisfy ZIP structure requirements.
+SKIPUNZIP=1
+unzip -o "$ZIPFILE" 'tools/*' -d "$TMPDIR"
+. "$TMPDIR/tools/ak3-core.sh"
