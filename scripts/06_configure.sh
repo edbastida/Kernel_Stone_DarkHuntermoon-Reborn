@@ -37,9 +37,12 @@ if [[ -f "${KERNEL_DIR}/arch/arm64/configs/${KERNEL_DEFCONFIG}" ]]; then
     check_error "defconfig failed"
     ok "Base defconfig loaded"
 
-    log "Step 2: Merging NetHunter additions..."
-    scripts/kconfig/merge_config.sh -m -O "${OUT_DIR}" \
-        "${OUT_DIR}/.config" "${NETHUNTER_CONFIG}"
+    log "Step 2: Merging NetHunter additions (KSU mode: ${KSU})..."
+    MERGE_FRAGS=("${OUT_DIR}/.config" "${NETHUNTER_CONFIG}")
+    if [[ "${KSU}" == "ksunext" ]]; then
+        MERGE_FRAGS+=("${CONFIG_DIR}/stone_ksu.config")
+    fi
+    scripts/kconfig/merge_config.sh -m -O "${OUT_DIR}" "${MERGE_FRAGS[@]}"
     check_error "merge_config.sh (nethunter) failed"
 
 elif [[ -d "${QGKI_DIR}" ]]; then
@@ -66,11 +69,14 @@ elif [[ -d "${QGKI_DIR}" ]]; then
     make O="${OUT_DIR}" ARCH=arm64 "${BASE_CFG}"
     check_error "GKI base defconfig failed"
 
-    log "Step 2: Merging vendor fragments + NetHunter additions..."
+    log "Step 2: Merging vendor fragments + NetHunter additions (KSU mode: ${KSU})..."
     MERGE_CONFIGS=("${OUT_DIR}/.config")
     [[ -f "${DEVICE_GKI_CFG}" ]]  && MERGE_CONFIGS+=("${DEVICE_GKI_CFG}")
     [[ -f "${DEVICE_QGKI_CFG}" ]] && MERGE_CONFIGS+=("${DEVICE_QGKI_CFG}")
     MERGE_CONFIGS+=("${NETHUNTER_CONFIG}")
+    if [[ "${KSU}" == "ksunext" ]]; then
+        MERGE_CONFIGS+=("${CONFIG_DIR}/stone_ksu.config")
+    fi
 
     scripts/kconfig/merge_config.sh -m -O "${OUT_DIR}" "${MERGE_CONFIGS[@]}"
     check_error "merge_config.sh (QGKI+nethunter) failed"

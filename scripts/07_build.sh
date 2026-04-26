@@ -19,6 +19,33 @@ mkdir -p "${OUT_DIR}" "${MODULES_DIR}" "${ZIP_DIR}"
 
 log "Build log: ${BUILD_LOG}"
 log "Using ${JOBS} parallel jobs"
+
+# Branding: append build date to LOCALVERSION via localversion-build,
+# and stamp /proc/version with deterministic user/host/timestamp.
+BUILD_DATE="$(date -u +%Y%m%d)"
+BUILD_TS="$(LC_ALL=C date -u)"
+LOCALVERSION_FILE="${KERNEL_DIR}/localversion-build"
+echo "-${BUILD_DATE}" > "${LOCALVERSION_FILE}"
+trap 'rm -f "${LOCALVERSION_FILE}"' EXIT
+export KBUILD_BUILD_TIMESTAMP="${BUILD_TS}"
+export KBUILD_BUILD_USER="Edbastida"
+export KBUILD_BUILD_HOST="DarkHunterMoon"
+log "Branding: localversion += -${BUILD_DATE}, user=${KBUILD_BUILD_USER}, host=${KBUILD_BUILD_HOST}"
+
+# kamikaonashi 5.4 hardcodes LINUX_COMPILE_BY='kami' / HOST='yourMom' in
+# scripts/mkcompile_h, ignoring KBUILD_BUILD_USER/HOST. Restore upstream
+# behavior so env vars take effect.
+MKCH="${KERNEL_DIR}/scripts/mkcompile_h"
+if grep -qE "^LINUX_COMPILE_(BY|HOST)='[^$]" "${MKCH}"; then
+    log "Patching scripts/mkcompile_h to honor KBUILD_BUILD_USER/HOST..."
+    sed -i \
+        -e "s|^LINUX_COMPILE_BY=.*|LINUX_COMPILE_BY=\"\${KBUILD_BUILD_USER:-\$(whoami)}\"|" \
+        -e "s|^LINUX_COMPILE_HOST=.*|LINUX_COMPILE_HOST=\"\${KBUILD_BUILD_HOST:-\$(hostname)}\"|" \
+        "${MKCH}"
+fi
+# Force compile.h regeneration so the new values land in this build.
+rm -f "${OUT_DIR}/include/generated/compile.h" "${OUT_DIR}/init/version.o"
+
 log "Starting kernel build..."
 
 BUILD_START=$(date +%s)
@@ -36,6 +63,9 @@ make -j"${JOBS}" \
     OBJDUMP=llvm-objdump \
     STRIP=llvm-strip \
     LD=ld.lld \
+    KBUILD_BUILD_TIMESTAMP="${KBUILD_BUILD_TIMESTAMP}" \
+    KBUILD_BUILD_USER="${KBUILD_BUILD_USER}" \
+    KBUILD_BUILD_HOST="${KBUILD_BUILD_HOST}" \
     Image.gz modules \
     2>&1 | tee "${BUILD_LOG}"
 

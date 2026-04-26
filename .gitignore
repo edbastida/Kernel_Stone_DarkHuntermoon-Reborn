@@ -1,5 +1,6 @@
 sources/
 out/
 .done_*
+.ksu_mode
 *.log
 *.rej

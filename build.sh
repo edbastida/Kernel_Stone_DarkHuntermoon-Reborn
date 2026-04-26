@@ -1,18 +1,32 @@
 #!/usr/bin/env bash
 # Entry point — orchestrates all build steps end-to-end.
 # Usage:
-#   bash build.sh                    # full build (steps 01–08)
-#   bash build.sh --step=configure   # step 06 only
-#   bash build.sh --step=compile     # step 07 only
-#   bash build.sh --step=package     # steps 07–08
-#   bash build.sh --clean            # remove .done_* markers to force re-run
+#   bash build.sh                       # full build (steps 01–08)
+#   bash build.sh --ksu=ksunext         # build with KernelSU Next baked in (default)
+#   bash build.sh --ksu=none            # build without KSU; root via Magisk
+#   bash build.sh --step=configure      # step 06 only
+#   bash build.sh --step=compile        # step 07 only
+#   bash build.sh --step=package        # steps 07–08
+#   bash build.sh --clean               # remove .done_* markers to force re-run
 set -euo pipefail
 
 SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
+export REPO_ROOT="${SCRIPT_DIR}"
+
+STEP=""
+CLEAN=0
+# Parse args before sourcing config.sh so KSU env var takes effect there.
+for arg in "$@"; do
+    case "${arg}" in
+        --step=*)  STEP="${arg#--step=}" ;;
+        --ksu=*)   export KSU="${arg#--ksu=}" ;;
+        --clean)   CLEAN=1 ;;
+        *)         echo "Unknown argument: ${arg}" >&2; exit 1 ;;
+    esac
+done
+
 source "${SCRIPT_DIR}/scripts/lib/config.sh"
 source "${SCRIPT_DIR}/scripts/lib/utils.sh"
-
-export REPO_ROOT="${SCRIPT_DIR}"
 
 # Tee all output to build-main.log (only when not already redirected)
 if [[ -z "${_BUILD_LOGGING:-}" ]]; then
@@ -21,23 +35,15 @@ if [[ -z "${_BUILD_LOGGING:-}" ]]; then
     exec > >(tee "${REPO_ROOT}/out/build-main.log") 2>&1
 fi
 
-STEP=""
-CLEAN=0
-
-for arg in "$@"; do
-    case "${arg}" in
-        --step=*)  STEP="${arg#--step=}" ;;
-        --clean)   CLEAN=1 ;;
-        *)         die "Unknown argument: ${arg}" ;;
-    esac
-done
-
 if [[ ${CLEAN} -eq 1 ]]; then
-    log "Removing .done_* markers..."
-    rm -f "${REPO_ROOT}"/.done_*
+    log "Removing .done_* markers and KSU mode cache..."
+    rm -f "${REPO_ROOT}"/.done_* "${KSU_STATE_FILE}"
     ok "Done markers removed. Next run will re-execute all steps."
     exit 0
 fi
+
+# Invalidate KSU-affected steps if the active mode changed since last run.
+ksu_mode_sync
 
 run_step() {
     local num="$1"

@@ -8,6 +8,19 @@ KERNEL_VERSION="${KERNEL_VERSION:-5.4.302}"
 JOBS="${JOBS:-$(nproc)}"
 SKIP_CLONE="${SKIP_CLONE:-}"
 
+# ZIP naming — override via env vars if needed
+KERNEL_NAME="${KERNEL_NAME:-DarkHunterMoon_reborn}"
+KERNEL_AUTHOR="${KERNEL_AUTHOR:-Edbastida}"
+ROM_TARGET="${ROM_TARGET:-Aosp16}"       # e.g. Aosp16, HyperOS2, Matrixx
+
+# Root provider: ksunext | none  (none → root via Magisk after flash)
+KSU="${KSU:-ksunext}"
+case "${KSU}" in
+    ksunext|none) ;;
+    *) echo "[config] Invalid KSU='${KSU}' — must be 'ksunext' or 'none'" >&2; exit 1 ;;
+esac
+KSU_STATE_FILE="${REPO_ROOT}/.ksu_mode"
+
 CLANG_DIR="${REPO_ROOT}/sources/toolchain/clang17"
 KERNEL_DIR="${REPO_ROOT}/sources/kernel"
 DRIVERS_DIR="${REPO_ROOT}/sources/drivers"

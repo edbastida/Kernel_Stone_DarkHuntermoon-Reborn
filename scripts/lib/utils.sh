@@ -52,3 +52,20 @@ is_step_done() {
 mark_step_done() {
     touch "$(step_done_file "$1")"
 }
+
+# Invalidate steps that depend on KSU mode whenever ${KSU} differs from the
+# value cached in ${KSU_STATE_FILE}. Call from build.sh before running steps.
+ksu_mode_sync() {
+    local prev=""
+    [[ -f "${KSU_STATE_FILE}" ]] && prev="$(cat "${KSU_STATE_FILE}")"
+    if [[ "${prev}" != "${KSU}" ]]; then
+        if [[ -n "${prev}" ]]; then
+            log "KSU mode changed: ${prev} → ${KSU} — invalidating steps 04, 06, 07, 08"
+        else
+            log "KSU mode initialized: ${KSU}"
+        fi
+        rm -f "$(step_done_file 04)" "$(step_done_file 06)" \
+              "$(step_done_file 07)" "$(step_done_file 08)"
+        echo "${KSU}" > "${KSU_STATE_FILE}"
+    fi
+}
