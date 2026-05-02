@@ -48,7 +48,17 @@ log "--- Kernel source ---"
 if [[ -d "${KERNEL_DIR}/.git" ]] && [[ -n "${SKIP_CLONE:-}" ]]; then
     log "Skipping kernel clone (SKIP_CLONE set)"
 else
-    [[ -d "${KERNEL_DIR}/.git" ]] && { warn "Removing existing kernel dir"; rm -rf "${KERNEL_DIR}"; }
+    if [[ -d "${KERNEL_DIR}/.git" ]]; then
+        warn "Removing existing kernel dir — invalidating downstream steps 03-08"
+        rm -rf "${KERNEL_DIR}"
+        # Reclonar el kernel borra los patches aplicados, los drivers Realtek
+        # copiados al árbol y la integración KSU. Sin invalidar estos markers,
+        # los steps se saltan y el kernel se compila incompleto (modulos
+        # Realtek faltantes → CRC mismatch al cargar en boot).
+        rm -f "$(step_done_file 03)" "$(step_done_file 04)" \
+              "$(step_done_file 05)" "$(step_done_file 06)" \
+              "$(step_done_file 07)" "$(step_done_file 08)"
+    fi
     kernel_cloned=0
     for branch_try in "${KERNEL_BRANCH}" main master; do
         log "Trying kernel branch: ${branch_try}..."

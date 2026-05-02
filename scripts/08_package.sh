@@ -22,6 +22,15 @@ log "Kernel image: ${KERNEL_IMAGE}"
 
 export PATH="${CLANG_DIR}/bin:${PATH}"
 
+log "Cleaning ${MODULES_DIR} to avoid stale modules from prior builds..."
+# Builds anteriores con distinto LOCALVERSION dejan subdirs como
+# lib/modules/5.4.302-Darkmoon-Reborn/ con .ko de CRCs antiguos. Si no se
+# limpia, el glob de Realtek de abajo los recoge y termina empaquetando
+# modulos que no matchean el kernel del ZIP → "disagrees about version of
+# symbol module_layout" en dmesg al hacer insmod.
+rm -rf "${MODULES_DIR}"
+mkdir -p "${MODULES_DIR}"
+
 log "Installing kernel modules..."
 pushd "${KERNEL_DIR}" > /dev/null
 make -j"${JOBS}" \
@@ -60,9 +69,23 @@ ok "Kernel release: ${KERNEL_RELEASE}"
 
 BUILD_DATE="$(date +%Y%m%d)"
 
-REALTEK_MODS=("${MODULES_DIR}"/lib/modules/*/kernel/drivers/net/wireless/realtek/*/*.ko)
+# Los drivers Realtek se compilan out-of-tree en step 07 y los .ko quedan
+# en sources/drivers/<drv>/*.ko. NO buscamos en $MODULES_DIR porque ahí
+# solo están los modulos in-tree del kernel.
+REALTEK_MODS=()
+for drv in rtl8188eus rtl88x2bu; do
+    while IFS= read -r ko; do
+        REALTEK_MODS+=("${ko}")
+    done < <(find "${DRIVERS_DIR}/${drv}" -maxdepth 1 -name "*.ko" -type f 2>/dev/null)
+done
 HAVE_MODS=0
-[[ ${#REALTEK_MODS[@]} -gt 0 && -f "${REALTEK_MODS[0]}" ]] && HAVE_MODS=1
+[[ ${#REALTEK_MODS[@]} -gt 0 ]] && HAVE_MODS=1
+if [[ ${HAVE_MODS} -eq 0 ]]; then
+    err "No Realtek .ko found in ${DRIVERS_DIR}/{rtl8188eus,rtl88x2bu}/"
+    err "Step 07 debe haberlos compilado out-of-tree."
+    err "Ejecuta: bash build.sh --clean && bash build.sh --ksu=${KSU}"
+    die "Aborto: el ZIP no debe distribuirse sin módulos Realtek"
+fi
 
 if [[ "${KSU}" == "ksunext" ]]; then
     log "Staging Realtek modules as KSU Next module (in-ZIP auto-install)..."

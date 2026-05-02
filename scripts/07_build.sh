@@ -97,8 +97,80 @@ for img_try in \
 done
 [[ -n "${KERNEL_IMAGE}" ]] || die "No kernel image found after build — check ${BUILD_LOG}"
 
-ok "Build successful in ${BUILD_MINS}m ${BUILD_SECS}s"
+ok "Kernel build successful in ${BUILD_MINS}m ${BUILD_SECS}s"
 ok "Kernel image: ${KERNEL_IMAGE} ($(du -sh "${KERNEL_IMAGE}" | cut -f1))"
+
+# ── Out-of-tree Realtek drivers ──────────────────────────────────────────────
+# Los Makefiles upstream de rtl8188eus / rtl88x2bu están escritos para
+# `make -C $KERNEL M=$PWD modules`. Compilarlos in-tree con kbuild rompe la
+# resolución de includes (drv_types.h, halrf_psd.h, etc). Compilamos cada uno
+# como módulo out-of-tree contra el kernel ya construido.
+log "Compiling Realtek drivers out-of-tree..."
+# El Makefile upstream de cada driver tiene
+#   obj-$(CONFIG_RTL8188EU) := $(MODULE_NAME).o
+# bajo `ifneq ($(KERNELRELEASE),)`. Como esos CONFIG_* no están en el .config
+# del kernel (los quitamos para evitar in-tree compile), tenemos que pasarlos
+# inline al sub-make para que kbuild active el target obj-m.
+declare -A DRIVERS_CFG=(
+    [rtl8188eus]="CONFIG_RTL8188EU=m"
+    [rtl88x2bu]="CONFIG_RTL8822BU=m"
+)
+
+for drv in "${!DRIVERS_CFG[@]}"; do
+    drv_src="${DRIVERS_DIR}/${drv}"
+    [[ -d "${drv_src}" ]] || die "Driver source missing: ${drv_src}"
+    drv_cfg_var="${DRIVERS_CFG[$drv]%%=*}"
+    drv_cfg_val="${DRIVERS_CFG[$drv]#*=}"
+
+    log "  → ${drv} (${DRIVERS_CFG[$drv]})"
+    DRV_LOG="${REPO_ROOT}/out/build-${drv}.log"
+
+    # Limpiar artefactos previos (.ko / .o de un build anterior).
+    pushd "${drv_src}" > /dev/null
+    make -C "${OUT_DIR}" \
+        M="$(pwd)" \
+        ARCH=arm64 \
+        clean > /dev/null 2>&1 || true
+
+    make -j"${JOBS}" \
+        -C "${OUT_DIR}" \
+        M="$(pwd)" \
+        ARCH=arm64 \
+        CC=clang \
+        CLANG_TRIPLE=aarch64-linux-gnu- \
+        CROSS_COMPILE=aarch64-linux-gnu- \
+        AR=llvm-ar \
+        NM=llvm-nm \
+        OBJCOPY=llvm-objcopy \
+        OBJDUMP=llvm-objdump \
+        STRIP=llvm-strip \
+        LD=ld.lld \
+        "${drv_cfg_var}=${drv_cfg_val}" \
+        modules \
+        2>&1 | tee "${DRV_LOG}"
+    DRV_STATUS=${PIPESTATUS[0]}
+    popd > /dev/null
+
+    if [[ ${DRV_STATUS} -ne 0 ]]; then
+        err "Failed to build ${drv} — see ${DRV_LOG}"
+        grep -n "error:" "${DRV_LOG}" | head -10
+        exit ${DRV_STATUS}
+    fi
+
+    # Verificar que produjo al menos un .ko en el source dir
+    KO_COUNT=$(find "${drv_src}" -maxdepth 1 -name "*.ko" -type f | wc -l)
+    if [[ ${KO_COUNT} -eq 0 ]]; then
+        die "${drv}: build reported success but no .ko produced in ${drv_src}"
+    fi
+    # Strip debug symbols — sin strip los .ko son ~350MB cada uno (vs ~3MB
+    # strippeados) e inflaban el ZIP final a 200MB+.
+    while IFS= read -r ko; do
+        llvm-strip --strip-debug "${ko}"
+    done < <(find "${drv_src}" -maxdepth 1 -name "*.ko" -type f)
+    ok "  ${drv}: $(find "${drv_src}" -maxdepth 1 -name "*.ko" -type f -printf '%f (%s bytes) ')"
+done
+
+ok "All Realtek drivers built out-of-tree"
 
 mark_step_done "07"
 ok "Step 07 complete."

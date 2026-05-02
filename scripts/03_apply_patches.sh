@@ -20,13 +20,28 @@ apply_patch() {
         return 0
     fi
 
+    # Marker patches: contienen solo comentarios documentando que el cambio
+    # ya está integrado upstream (ej: 0001-hid-gadget.patch en kamikaonashi).
+    # Sin lineas 'diff --git' no hay nada que aplicar.
+    if ! grep -q '^diff --git' "${patch_file}"; then
+        log "Skipping ${patch_name} (marker/empty patch — no diff payload)"
+        return 0
+    fi
+
     log "Applying: ${patch_name}"
+    # Si ya está aplicado (reverse-check pasa), saltar idempotentemente.
+    if git -C "${KERNEL_DIR}" apply --reverse --check "${patch_file}" 2>/dev/null; then
+        warn "${patch_name} already applied — skipping"
+        return 0
+    fi
     git -C "${KERNEL_DIR}" apply --check "${patch_file}" 2>/dev/null || {
         warn "${patch_name} does not apply cleanly — attempting with --reject"
         git -C "${KERNEL_DIR}" apply --reject "${patch_file}" || {
             err "Patch ${patch_name} failed. Check ${KERNEL_DIR}/*.rej files."
             exit 1
         }
+        ok "Applied (with rejects): ${patch_name}"
+        return 0
     }
     git -C "${KERNEL_DIR}" apply "${patch_file}"
     check_error "Failed to apply ${patch_name}"

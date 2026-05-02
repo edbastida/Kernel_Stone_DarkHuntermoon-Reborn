@@ -55,12 +55,24 @@ mark_step_done() {
 
 # Invalidate steps that depend on KSU mode whenever ${KSU} differs from the
 # value cached in ${KSU_STATE_FILE}. Call from build.sh before running steps.
+#
+# Importante: además de los markers, limpiamos out/kernel/ y los .ko
+# out-of-tree de los drivers Realtek. Cambiar KSU mode altera el ABI del
+# kernel (CONFIG_KSU añade/quita símbolos), así que las CRCs de Module.symvers
+# cambian y todos los módulos deben recompilarse contra el kernel nuevo —
+# de lo contrario fallan al cargar con "disagrees about version of symbol
+# module_layout".
 ksu_mode_sync() {
     local prev=""
     [[ -f "${KSU_STATE_FILE}" ]] && prev="$(cat "${KSU_STATE_FILE}")"
     if [[ "${prev}" != "${KSU}" ]]; then
         if [[ -n "${prev}" ]]; then
-            log "KSU mode changed: ${prev} → ${KSU} — invalidating steps 04, 06, 07, 08"
+            log "KSU mode changed: ${prev} → ${KSU} — invalidating steps 04, 06, 07, 08 + cleaning kernel build"
+            # Forzar rebuild completo del kernel: las CRCs cambian con KSU.
+            rm -rf "${OUT_DIR}" "${MODULES_DIR}"
+            # Borrar .ko out-of-tree de drivers (deben recompilarse contra
+            # el kernel nuevo con CRCs nuevas).
+            find "${DRIVERS_DIR}" -maxdepth 2 -name "*.ko" -delete 2>/dev/null || true
         else
             log "KSU mode initialized: ${KSU}"
         fi
