@@ -1,0 +1,55 @@
+From 3530ddf42d3646dedebb4ef957f2b275ca83fb88 Mon Sep 17 00:00:00 2001
+From: Madara273 <ravenhoxs@gmail.com>
+Date: Mon, 9 Mar 2026 02:10:14 +0000
+Subject: [PATCH 7/8] wlan: frame_inject: align vendor command struct with 5.*
+ ABI
+
+Add vendor_command_policy to frame injection commands. This fixes the "WLAN OFF" issue caused by strict policy validation in net/wireless/core.c
+
+Signed-off-by: Madara273 <ravenhoxs@gmail.com>
+---
+ .../qcacld-3.0/core/hdd/inc/wlan_hdd_frame_inject.h   | 11 +++++++----
+ 1 file changed, 7 insertions(+), 4 deletions(-)
+
+diff --git a/drivers/staging/qcacld-3.0/core/hdd/inc/wlan_hdd_frame_inject.h b/drivers/staging/qcacld-3.0/core/hdd/inc/wlan_hdd_frame_inject.h
+index 8b4791e5066aa..a69dc1bf5bcaa 100644
+--- a/drivers/staging/qcacld-3.0/core/hdd/inc/wlan_hdd_frame_inject.h
++++ b/drivers/staging/qcacld-3.0/core/hdd/inc/wlan_hdd_frame_inject.h
+@@ -92,21 +92,24 @@ struct wireless_dev;
+ 	.flags = WIPHY_VENDOR_CMD_NEED_WDEV | \
+ 		 WIPHY_VENDOR_CMD_NEED_NETDEV | \
+ 		 WIPHY_VENDOR_CMD_NEED_RUNNING, \
+-	.doit = hdd_frame_inject_netlink \
++	.doit = hdd_frame_inject_netlink, \
++	vendor_command_policy(VENDOR_CMD_RAW_DATA, 0) \
+ }, \
+ { \
+ 	.info.vendor_id = QCA_NL80211_VENDOR_ID, \
+ 	.info.subcmd = QCA_NL80211_VENDOR_SUBCMD_FRAME_INJECT_STATS, \
+ 	.flags = WIPHY_VENDOR_CMD_NEED_WDEV | \
+ 		 WIPHY_VENDOR_CMD_NEED_NETDEV, \
+-	.doit = hdd_get_injection_stats_netlink \
++	.doit = hdd_get_injection_stats_netlink, \
++	vendor_command_policy(VENDOR_CMD_RAW_DATA, 0) \
+ }, \
+ { \
+ 	.info.vendor_id = QCA_NL80211_VENDOR_ID, \
+ 	.info.subcmd = QCA_NL80211_VENDOR_SUBCMD_FRAME_INJECT_RESET, \
+ 	.flags = WIPHY_VENDOR_CMD_NEED_WDEV | \
+ 		 WIPHY_VENDOR_CMD_NEED_NETDEV, \
+-	.doit = hdd_reset_injection_stats_netlink \
++	.doit = hdd_reset_injection_stats_netlink, \
++	vendor_command_policy(VENDOR_CMD_RAW_DATA, 0) \
+ }
+ 
+ /**
+@@ -714,4 +717,4 @@ static inline QDF_STATUS hdd_monitor_injection_resources(struct hdd_adapter *ada
+ 
+ #endif /* FEATURE_FRAME_INJECTION_SUPPORT */
+ 
+-#endif /* __WLAN_HDD_FRAME_INJECT_H */
+\ No newline at end of file
++#endif /* __WLAN_HDD_FRAME_INJECT_H */
+-- 
+2.51.0
+

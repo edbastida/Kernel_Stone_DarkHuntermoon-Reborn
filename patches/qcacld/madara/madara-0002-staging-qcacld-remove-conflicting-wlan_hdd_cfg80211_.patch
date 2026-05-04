@@ -1,0 +1,51 @@
+From cc12264daa55541685d35704e5893548d50bb613 Mon Sep 17 00:00:00 2001
+From: Madara273 <ravenhoxs@gmail.com>
+Date: Sun, 8 Mar 2026 18:46:05 +0000
+Subject: [PATCH 2/8] staging: qcacld: remove conflicting
+ wlan_hdd_cfg80211_get_channel wrapper
+
+Signed-off-by: Madara273 <ravenhoxs@gmail.com>
+---
+ .../core/hdd/src/wlan_hdd_cfg80211.c          | 26 -------------------
+ 1 file changed, 26 deletions(-)
+
+diff --git a/drivers/staging/qcacld-3.0/core/hdd/src/wlan_hdd_cfg80211.c b/drivers/staging/qcacld-3.0/core/hdd/src/wlan_hdd_cfg80211.c
+index cd3856bd5f469..0ac23b664a304 100644
+--- a/drivers/staging/qcacld-3.0/core/hdd/src/wlan_hdd_cfg80211.c
++++ b/drivers/staging/qcacld-3.0/core/hdd/src/wlan_hdd_cfg80211.c
+@@ -26148,32 +26148,6 @@ static int __wlan_hdd_cfg80211_get_channel(struct wiphy *wiphy,
+ 	return 0;
+ }
+ 
+-/**
+- * wlan_hdd_cfg80211_get_channel() - API to process cfg80211 get_channel request
+- * @wiphy: Pointer to wiphy
+- * @wdev: Pointer to wireless device
+- * @chandef: Pointer to channel definition
+- *
+- * Return: 0 for success, non zero for failure
+- */
+-static int wlan_hdd_cfg80211_get_channel(struct wiphy *wiphy,
+-					 struct wireless_dev *wdev,
+-					 struct cfg80211_chan_def *chandef)
+-{
+-	int errno;
+-	struct osif_vdev_sync *vdev_sync;
+-
+-	errno = osif_vdev_sync_op_start(wdev->netdev, &vdev_sync);
+-	if (errno)
+-		return errno;
+-
+-	errno = __wlan_hdd_cfg80211_get_channel(wiphy, wdev, chandef);
+-
+-	osif_vdev_sync_op_stop(vdev_sync);
+-
+-	return errno;
+-}
+-
+ static bool hdd_check_bitmask_for_single_rate(enum nl80211_band band,
+ 				const struct cfg80211_bitrate_mask *mask)
+ {
+-- 
+2.51.0
+

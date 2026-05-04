@@ -1,0 +1,29 @@
+From 5414259da7af3eed9d64b3a826d8cbbac237921d Mon Sep 17 00:00:00 2001
+From: Madara273 <ravenhoxs@gmail.com>
+Date: Sun, 8 Mar 2026 20:57:29 +0000
+Subject: [PATCH 6/8] wma inject: Use vdev_mlme.des_chan->ch_freq instead of
+ the deprecated mhz field.
+
+Signed-off-by: Madara273 <ravenhoxs@gmail.com>
+---
+ drivers/staging/qcacld-3.0/core/wma/src/wma_frame_inject.c | 4 ++--
+ 1 file changed, 2 insertions(+), 2 deletions(-)
+
+diff --git a/drivers/staging/qcacld-3.0/core/wma/src/wma_frame_inject.c b/drivers/staging/qcacld-3.0/core/wma/src/wma_frame_inject.c
+index e09fe0fed9640..f27e7f08df97b 100644
+--- a/drivers/staging/qcacld-3.0/core/wma/src/wma_frame_inject.c
++++ b/drivers/staging/qcacld-3.0/core/wma/src/wma_frame_inject.c
+@@ -1415,8 +1415,8 @@ QDF_STATUS wma_send_injection_frame_to_fw(tp_wma_handle wma_handle,
+ 		return QDF_STATUS_E_AGAIN;
+ 	}
+ 
+-	if (wma_handle->interfaces[vdev_id].mhz)
+-		tx_chanfreq = wma_handle->interfaces[vdev_id].mhz;
++	if (wma_handle->interfaces[vdev_id].vdev->vdev_mlme.des_chan->ch_freq)
++		tx_chanfreq = wma_handle->interfaces[vdev_id].vdev->vdev_mlme.des_chan->ch_freq;
+ 
+ 	if (req->frame_len)
+ 		fc0 = req->frame_data[0];
+-- 
+2.51.0
+

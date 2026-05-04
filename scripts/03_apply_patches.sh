@@ -34,16 +34,19 @@ apply_patch() {
         warn "${patch_name} already applied — skipping"
         return 0
     fi
-    git -C "${KERNEL_DIR}" apply --check "${patch_file}" 2>/dev/null || {
+    # -C1 relaja el contexto a 1 línea — necesario para la serie Madara
+    # qcacld 5.4.302 que arrastra contexto OPLUS no presente en stone.
+    local ctx_flag="-C1"
+    git -C "${KERNEL_DIR}" apply --check ${ctx_flag} "${patch_file}" 2>/dev/null || {
         warn "${patch_name} does not apply cleanly — attempting with --reject"
-        git -C "${KERNEL_DIR}" apply --reject "${patch_file}" || {
+        git -C "${KERNEL_DIR}" apply --reject ${ctx_flag} "${patch_file}" || {
             err "Patch ${patch_name} failed. Check ${KERNEL_DIR}/*.rej files."
             exit 1
         }
         ok "Applied (with rejects): ${patch_name}"
         return 0
     }
-    git -C "${KERNEL_DIR}" apply "${patch_file}"
+    git -C "${KERNEL_DIR}" apply ${ctx_flag} "${patch_file}"
     check_error "Failed to apply ${patch_name}"
     ok "Applied: ${patch_name}"
 }
@@ -54,8 +57,21 @@ apply_patch "${PATCHES_DIR}/nethunter/0001-hid-gadget.patch"
 apply_patch "${PATCHES_DIR}/nethunter/0002-mac80211-inject.patch"
 apply_patch "${PATCHES_DIR}/nethunter/0003-bt-attack.patch"
 
-log "--- QCACLD-3.0 injection patch ---"
-apply_patch "${PATCHES_DIR}/qcacld/0001-qcacld-inject.patch"
+log "--- QCACLD-3.0 injection patches ---"
+# Loukious frame-inject DISABLED on stone: hdd_open_adapter() now calls
+# hdd_init_frame_injection() which hangs the STA bring-up at boot, so
+# wifi never comes up. Loukious assumes SM8150/qcacld of newer flavour;
+# its qdf_create_work(0,...) + debugfs init pattern blocks our 5.4 stone.
+# apply_patch "${PATCHES_DIR}/qcacld/0001-stone-frame-inject.patch"
+#
+# Madara273 series para kernel 5.4.302 — base kimocoder + 7 fixes (drift
+# de signatures 5.4 + vendor_command_policy + des_chan->ch_freq + WMA_LOG
+# migration + duplicate get_channel + hdd_disable_monitor_mode signature).
+# Aplica con -C1 porque arrastra contexto OPLUS_FEATURE_WIFI_DCS_SWITCH
+# que no existe en stone (Xiaomi). Reemplaza al patch minimal anterior.
+for p in "${PATCHES_DIR}/qcacld/madara/"madara-*.patch; do
+    apply_patch "$p"
+done
 
 log "--- MTK WLAN compat patch ---"
 apply_patch "${PATCHES_DIR}/mtk/0001-mtk-wlan-compat.patch"

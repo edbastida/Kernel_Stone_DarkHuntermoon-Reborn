@@ -1,0 +1,143 @@
+From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
+From: edbastida <edgar.herce@gmail.com>
+Date: Sun, 4 May 2026 00:30:00 +0000
+Subject: [PATCH 9/9] stone: drop orphan __wlan_hdd_cfg80211_get_channel from
+ Madara 0001
+
+Madara's 0001 (kimocoder upstream) injects a STA/AP/P2P-aware
+__wlan_hdd_cfg80211_get_channel and 0002 deletes its calling wrapper
+on a tree where the wrapper is the active cfg80211 ops binding.
+
+Stone's wlan_hdd_cfg80211_get_channel at ~24973 is a monitor-mode-aware
+helper added by the previous minimal patch (uses adapter->mon_chan_freq
+and mon_bandwidth — required for aireplay-ng/mdk to read the channel
+in monitor mode).  cfg80211_ops keeps pointing at it.  The
+__wlan_hdd_cfg80211_get_channel that 0001 injected is therefore unused
+and the qcacld-3.0 build is -Werror=unused-function:
+
+  drivers/staging/qcacld-3.0/core/hdd/src/wlan_hdd_cfg80211.c:26017:12:
+  error: unused function '__wlan_hdd_cfg80211_get_channel'
+  [-Werror,-Wunused-function]
+
+Drop the orphan.  STA/P2P channel reporting via the kimocoder path
+(des_chan->ch_freq) can be folded into the existing function later if
+needed.
+
+Signed-off-by: edbastida <edgar.herce@gmail.com>
+---
+diff --git a/drivers/staging/qcacld-3.0/core/hdd/src/wlan_hdd_cfg80211.c b/drivers/staging/qcacld-3.0/core/hdd/src/wlan_hdd_cfg80211.c
+--- a/drivers/staging/qcacld-3.0/core/hdd/src/wlan_hdd_cfg80211.c
++++ b/drivers/staging/qcacld-3.0/core/hdd/src/wlan_hdd_cfg80211.c
+@@ -26014,112 +26014,6 @@
+ 		return false;
+ }
+ 
+-static int __wlan_hdd_cfg80211_get_channel(struct wiphy *wiphy,
+-					   struct wireless_dev *wdev,
+-					   struct cfg80211_chan_def *chandef)
+-{
+-	struct net_device *dev = wdev->netdev;
+-	struct hdd_adapter *adapter = WLAN_HDD_GET_PRIV_PTR(dev);
+-	struct hdd_context *hdd_ctx;
+-	bool is_legacy_phymode = false;
+-	struct wlan_objmgr_vdev *vdev;
+-	uint32_t chan_freq;
+-
+-	hdd_enter_dev(wdev->netdev);
+-
+-	if (hdd_validate_adapter(adapter))
+-		return -EINVAL;
+-
+-	hdd_ctx = WLAN_HDD_GET_CTX(adapter);
+-	if (wlan_hdd_validate_context(hdd_ctx))
+-		return -EINVAL;
+-
+-	if ((adapter->device_mode == QDF_STA_MODE) ||
+-	    (adapter->device_mode == QDF_P2P_CLIENT_MODE)) {
+-		struct hdd_station_ctx *sta_ctx;
+-
+-		if (!hdd_adapter_is_connected_sta(adapter))
+-			return -EINVAL;
+-
+-		sta_ctx = WLAN_HDD_GET_STATION_CTX_PTR(adapter);
+-		if (sta_ctx->conn_info.dot11mode < eCSR_CFG_DOT11_MODE_11N)
+-			is_legacy_phymode = true;
+-
+-	} else if ((adapter->device_mode == QDF_SAP_MODE) ||
+-			(adapter->device_mode == QDF_P2P_GO_MODE)) {
+-		struct hdd_ap_ctx *ap_ctx;
+-
+-		ap_ctx = WLAN_HDD_GET_AP_CTX_PTR(adapter);
+-
+-		if (!test_bit(SOFTAP_BSS_STARTED, &adapter->event_flags))
+-			return -EINVAL;
+-
+-		switch (ap_ctx->sap_config.SapHw_mode) {
+-		case eCSR_DOT11_MODE_11n:
+-		case eCSR_DOT11_MODE_11n_ONLY:
+-		case eCSR_DOT11_MODE_11ac:
+-		case eCSR_DOT11_MODE_11ac_ONLY:
+-		case eCSR_DOT11_MODE_11ax:
+-		case eCSR_DOT11_MODE_11ax_ONLY:
+-			is_legacy_phymode = false;
+-			break;
+-		default:
+-			is_legacy_phymode = true;
+-			break;
+-		}
+-	} else {
+-		return -EINVAL;
+-	}
+-
+-	vdev = hdd_objmgr_get_vdev(adapter);
+-	if (!vdev)
+-		return -EINVAL;
+-
+-	chan_freq = vdev->vdev_mlme.des_chan->ch_freq;
+-	chandef->center_freq1 = vdev->vdev_mlme.des_chan->ch_cfreq1;
+-	chandef->center_freq2 = 0;
+-	chandef->chan = ieee80211_get_channel(wiphy, chan_freq);
+-
+-	switch (vdev->vdev_mlme.des_chan->ch_width) {
+-	case CH_WIDTH_20MHZ:
+-		if (is_legacy_phymode)
+-			chandef->width = NL80211_CHAN_WIDTH_20_NOHT;
+-		else
+-			chandef->width = NL80211_CHAN_WIDTH_20;
+-		break;
+-	case CH_WIDTH_40MHZ:
+-		chandef->width = NL80211_CHAN_WIDTH_40;
+-		break;
+-	case CH_WIDTH_80MHZ:
+-		chandef->width = NL80211_CHAN_WIDTH_80;
+-		break;
+-	case CH_WIDTH_160MHZ:
+-		chandef->width = NL80211_CHAN_WIDTH_160;
+-		/* Set center_freq1 to center frequency of complete 160MHz */
+-		chandef->center_freq1 = vdev->vdev_mlme.des_chan->ch_cfreq2;
+-		break;
+-	case CH_WIDTH_80P80MHZ:
+-		chandef->width = NL80211_CHAN_WIDTH_80P80;
+-		chandef->center_freq2 = vdev->vdev_mlme.des_chan->ch_cfreq2;
+-		break;
+-	case CH_WIDTH_5MHZ:
+-		chandef->width = NL80211_CHAN_WIDTH_5;
+-		break;
+-	case CH_WIDTH_10MHZ:
+-		chandef->width = NL80211_CHAN_WIDTH_10;
+-		break;
+-	default:
+-		chandef->width = NL80211_CHAN_WIDTH_20;
+-		break;
+-	}
+-
+-	hdd_objmgr_put_vdev(vdev);
+-	hdd_debug("primary_freq:%d, ch_width:%d, center_freq1:%d, center_freq2:%d",
+-		  chan_freq, chandef->width, chandef->center_freq1,
+-		  chandef->center_freq2);
+-	return 0;
+-}
+-
+ static bool hdd_check_bitmask_for_single_rate(enum nl80211_band band,
+ 				const struct cfg80211_bitrate_mask *mask)
+ {

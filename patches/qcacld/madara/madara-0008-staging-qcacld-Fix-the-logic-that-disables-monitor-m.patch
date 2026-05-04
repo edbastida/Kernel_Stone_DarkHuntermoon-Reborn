@@ -1,0 +1,74 @@
+From 18c4740f8723682ae3be181a756cc502d93a70b4 Mon Sep 17 00:00:00 2001
+From: Madara273 <ravenhoxs@gmail.com>
+Date: Sun, 8 Mar 2026 19:41:02 +0000
+Subject: [PATCH 8/8] staging: qcacld: Fix the logic that disables monitor mode
+ in the injection patch.
+
+Signed-off-by: Madara273 <ravenhoxs@gmail.com>
+---
+ drivers/staging/qcacld-3.0/core/hdd/src/wlan_hdd_main.c   | 2 +-
+ .../staging/qcacld-3.0/core/hdd/src/wlan_hdd_rx_monitor.c | 8 +-------
+ .../staging/qcacld-3.0/core/hdd/src/wlan_hdd_rx_monitor.h | 4 ++--
+ 3 files changed, 4 insertions(+), 10 deletions(-)
+
+diff --git a/drivers/staging/qcacld-3.0/core/hdd/src/wlan_hdd_main.c b/drivers/staging/qcacld-3.0/core/hdd/src/wlan_hdd_main.c
+index 822cdbbd21591..bdfdb1b36bbb5 100644
+--- a/drivers/staging/qcacld-3.0/core/hdd/src/wlan_hdd_main.c
++++ b/drivers/staging/qcacld-3.0/core/hdd/src/wlan_hdd_main.c
+@@ -7640,7 +7640,7 @@ QDF_STATUS hdd_stop_adapter(struct hdd_context *hdd_ctx,
+ 		wlan_hdd_scan_abort(adapter);
+ 		hdd_deregister_hl_netdev_fc_timer(adapter);
+ 		hdd_deregister_tx_flow_control(adapter);
+-		status = hdd_disable_monitor_mode();
++		status = hdd_disable_monitor_mode(adapter->dev);
+ 		if (QDF_IS_STATUS_ERROR(status))
+ 			hdd_err_rl("datapath reset failed for montior mode");
+ 		hdd_set_idle_ps_config(hdd_ctx, true);
+diff --git a/drivers/staging/qcacld-3.0/core/hdd/src/wlan_hdd_rx_monitor.c b/drivers/staging/qcacld-3.0/core/hdd/src/wlan_hdd_rx_monitor.c
+index 601900087a94e..088101edb407a 100644
+--- a/drivers/staging/qcacld-3.0/core/hdd/src/wlan_hdd_rx_monitor.c
++++ b/drivers/staging/qcacld-3.0/core/hdd/src/wlan_hdd_rx_monitor.c
+@@ -139,7 +139,7 @@ int hdd_enable_monitor_mode(struct net_device *dev)
+ int hdd_disable_monitor_mode(struct net_device *dev)
+ {
+ 	void *soc = cds_get_context(QDF_MODULE_ID_SOC);
+-	uint8_t vdev_id;
++	int vdev_id;
+ 	int ret;
+ #ifdef FEATURE_FRAME_INJECTION_SUPPORT
+ 	struct hdd_adapter *adapter = WLAN_HDD_GET_PRIV_PTR(dev);
+@@ -166,9 +166,3 @@ int hdd_disable_monitor_mode(struct net_device *dev)
+ 	return ret;
+ }
+ 
+-int hdd_disable_monitor_mode(void)
+-{
+-	void *soc = cds_get_context(QDF_MODULE_ID_SOC);
+-
+-	return cdp_reset_monitor_mode(soc, OL_TXRX_PDEV_ID, false);
+-}
+diff --git a/drivers/staging/qcacld-3.0/core/hdd/src/wlan_hdd_rx_monitor.h b/drivers/staging/qcacld-3.0/core/hdd/src/wlan_hdd_rx_monitor.h
+index bfe2b5b4219f9..aea098017e609 100644
+--- a/drivers/staging/qcacld-3.0/core/hdd/src/wlan_hdd_rx_monitor.h
++++ b/drivers/staging/qcacld-3.0/core/hdd/src/wlan_hdd_rx_monitor.h
+@@ -65,7 +65,7 @@ int hdd_enable_monitor_mode(struct net_device *dev);
+  *
+  * Return: 0 for success; non-zero for failure
+  */
+-int hdd_disable_monitor_mode(void);
++int hdd_disable_monitor_mode(struct net_device *dev);
+ #else
+ static inline void hdd_monitor_set_rx_monitor_cb(struct ol_txrx_ops *txrx,
+ 					ol_txrx_rx_mon_fp rx_monitor_cb){ }
+@@ -77,7 +77,7 @@ static inline int hdd_enable_monitor_mode(struct net_device *dev)
+ 	return 0;
+ }
+ 
+-static inline int hdd_disable_monitor_mode(void)
++static inline int hdd_disable_monitor_mode(struct net_device *dev)
+ {
+ 	return 0;
+ }
+-- 
+2.51.0
+

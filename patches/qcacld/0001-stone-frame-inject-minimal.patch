@@ -1,0 +1,55 @@
+diff --git a/drivers/staging/qcacld-3.0/core/hdd/src/wlan_hdd_cfg80211.c b/drivers/staging/qcacld-3.0/core/hdd/src/wlan_hdd_cfg80211.c
+index e34540cc9..d71504000 100644
+--- a/drivers/staging/qcacld-3.0/core/hdd/src/wlan_hdd_cfg80211.c
++++ b/drivers/staging/qcacld-3.0/core/hdd/src/wlan_hdd_cfg80211.c
+@@ -24917,22 +24917,15 @@ static int __wlan_hdd_cfg80211_set_mon_ch(struct wiphy *wiphy,
+ 				       &adapter->qdf_monitor_mode_vdev_up_event,
+ 					WLAN_MONITOR_MODE_VDEV_UP_EVT);
+ 	if (QDF_IS_STATUS_ERROR(status)) {
+-		hdd_err_rl("monitor vdev up event time out vdev id: %d",
+-			  adapter->vdev_id);
+-		if (adapter->qdf_monitor_mode_vdev_up_event.force_set)
+-			/*
+-			 * SSR/PDR has caused shutdown, which has
+-			 * forcefully set the event.
+-			 */
+-			hdd_err_rl("monitor mode vdev up event forcefully set");
+-		else if (status == QDF_STATUS_E_TIMEOUT)
+-			hdd_err_rl("monitor mode vdev up timed out");
+-		else
+-			hdd_err_rl("Failed monitor mode vdev up(status-%d)",
+-				  status);
+-
++		printk_ratelimited(KERN_WARNING
++			"STONE_INJECT: monitor vdev up timeout (status=%d) — forcing carrier ON\n",
++			status);
+ 		adapter->monitor_mode_vdev_up_in_progress = false;
+-		return qdf_status_to_os_return(status);
++		if (adapter->dev) {
++			netif_carrier_on(adapter->dev);
++			netif_tx_start_all_queues(adapter->dev);
++		}
++		return 0;
+ 	}
+ 
+ 	hdd_exit();
+diff --git a/drivers/staging/qcacld-3.0/core/hdd/src/wlan_hdd_main.c b/drivers/staging/qcacld-3.0/core/hdd/src/wlan_hdd_main.c
+index c7353ab28..24dabba23 100644
+--- a/drivers/staging/qcacld-3.0/core/hdd/src/wlan_hdd_main.c
++++ b/drivers/staging/qcacld-3.0/core/hdd/src/wlan_hdd_main.c
+@@ -2930,6 +2930,15 @@ static int __hdd_mon_open(struct net_device *dev)
+ 					  PLD_BUS_WIDTH_VERY_HIGH);
+ 	}
+ 
++	/* Force carrier ON in monitor mode so aireplay-ng / pcap raw sockets
++	 * can deliver TX skbs to ndo_start_xmit. Without this wlan0 stays
++	 * NO-CARRIER permanently and the kernel drops every TX before xmit.
++	 */
++	netif_carrier_on(dev);
++	netif_tx_start_all_queues(dev);
++	printk(KERN_INFO "STONE_INJECT: monitor open carrier=ON dev=%s\n",
++	       dev->name);
++
+ 	return ret;
+ }
+ 
