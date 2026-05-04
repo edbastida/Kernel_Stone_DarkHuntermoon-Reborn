@@ -1,8 +1,20 @@
-# NetHunter Kernel for POCO X5 5G / Redmi Note 12 5G
+<p align="center">
+  <img src="assets/logo.jpg" alt="DarkHunterMoon-Reborn" width="320" />
+</p>
 
-> **Devices:** stone · moonstone · sunstone  
-> **SoC:** Snapdragon 695 5G (SM6375)  
-> **Kernel:** 5.4.302 (Darkmoon-Reborn base)  
+<h1 align="center">DarkHunterMoon-Reborn</h1>
+<p align="center"><i>NetHunter Kernel for POCO X5 5G / Redmi Note 12 5G</i></p>
+
+<p align="center">
+  <a href="https://github.com/edbastida/Kernel_Stone_DarkHuntermoon-Reborn/releases/latest"><img src="https://img.shields.io/github/v/release/edbastida/Kernel_Stone_DarkHuntermoon-Reborn?style=flat-square" alt="Release" /></a>
+  <img src="https://img.shields.io/badge/kernel-5.4.302-blue?style=flat-square" alt="Kernel" />
+  <img src="https://img.shields.io/badge/Android-16-green?style=flat-square" alt="Android" />
+  <img src="https://img.shields.io/badge/wlan0%20injection-working-success?style=flat-square" alt="Injection" />
+</p>
+
+> **Devices:** stone · moonstone · sunstone
+> **SoC:** Snapdragon 695 5G (SM6375)
+> **Kernel:** 5.4.302 (DarkHunterMoon-Reborn)
 > **Tested ROM:** Matrixx AOSP (Android 16)
 
 ---
@@ -10,9 +22,11 @@
 ## Features
 
 ### WiFi & Injection
+- **wlan0 native frame injection** — qcacld-3.0 Madara273 5.4.302 series, validated 100% with `aireplay-ng --test`
 - mac80211 packet injection patch
 - wlan0 monitor mode support (QCACLD-3.0)
 - Monitor channel change without restrictions (cfg80211 patch)
+- Wireless extensions (CFG80211_WEXT, WEXT_PRIV/SPY) for legacy iwconfig/aireplay tooling
 - RTL8188EU driver — TL-WN722N v2/v3 (RTL8188EUS)
 - RTL88x2BU driver — AC1200 dual-band adapters
 - External USB WiFi adapter support
@@ -101,6 +115,10 @@ aireplay-ng --test wlan2
 
 - [kamikaonashi](https://github.com/kamikaonashi/kernel_xiaomi_stone) — kernel base (Darkmoon-Reborn)
 - [osm0sis](https://github.com/osm0sis/AnyKernel3) — AnyKernel3
+- [kimocoder](https://github.com/aircrack-ng) — qcacld-3.0 packet injection upstream
+- **Loukious** — co-author of the base injection patch
+- **Madara273** — qcacld-3.0 5.4.302 port and ABI fixes
+- **dr_rootsu, cyberknight777, HelloWorld, Robin, starsea** — debugging in the QCACLD-3 Telegram group
 - [aircrack-ng](https://github.com/aircrack-ng/rtl8188eus) — RTL8188EUS driver
 - [RinCat](https://github.com/RinCat/RTL88x2BU-Linux-Driver) — RTL88x2BU driver
 - Kali NetHunter team — mac80211 injection patch
